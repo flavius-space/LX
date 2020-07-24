@@ -26,7 +26,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import com.google.gson.JsonObject;
-
 import heronarts.lx.LX;
 import heronarts.lx.LXComponent;
 import heronarts.lx.model.LXModel;
@@ -157,13 +156,13 @@ public abstract class LXFixture extends LXComponent implements LXFixtureContaine
 
   private final LXMatrix parentTransformMatrix = new LXMatrix();
 
-  private final LXMatrix geometryMatrix = new LXMatrix();
+  protected final LXMatrix geometryMatrix = new LXMatrix();
 
-  private final List<LXPoint> mutablePoints = new ArrayList<LXPoint>();
+  protected final List<LXPoint> mutablePoints = new ArrayList<LXPoint>();
 
-  private LXModel model = null;
+  protected LXModel model = null;
 
-  private LXFixtureContainer container = null;
+  protected LXFixtureContainer container = null;
 
   /**
    * Publicly accessible immutable view of the points in this fixture. Should not
@@ -177,7 +176,7 @@ public abstract class LXFixture extends LXComponent implements LXFixtureContaine
    * because the model is passed to the UI layer which runs on a separate thread. That copy of the points
    * shouldn't be modified by re-indexing that occurs when we modify this.
    */
-  private final List<LXPoint> modelPoints = new ArrayList<LXPoint>();
+  protected final List<LXPoint> modelPoints = new ArrayList<LXPoint>();
 
   private final Set<LXParameter> metricsParameters = new HashSet<LXParameter>();
 
@@ -187,7 +186,7 @@ public abstract class LXFixture extends LXComponent implements LXFixtureContaine
 
   private int index = 0;
 
-  private int firstPointIndex = 0;
+  protected int firstPointIndex = 0;
 
   protected LXFixture(LX lx) {
     this(lx, "Fixture");
@@ -457,7 +456,7 @@ public abstract class LXFixture extends LXComponent implements LXFixtureContaine
 
   private final List<DynamicIndexBuffer> dynamicIndexBuffers = new ArrayList<DynamicIndexBuffer>();
 
-  private void regenerateDatagrams() {
+  protected void regenerateDatagrams() {
     // Dispose of all these datagrams
     for (LXDatagram datagram : this.datagrams) {
       datagram.dispose();
@@ -525,11 +524,16 @@ public abstract class LXFixture extends LXComponent implements LXFixtureContaine
   }
 
   /**
+   * Can be used by subclasses to extend regenerate
+   */
+  public void onRegenerate() {}
+
+  /**
    * Invoked when this fixture has been loaded or added to some container. Will
    * rebuild the points and the metrics, and notify container of the change to
    * this fixture's generation
    */
-  protected final void regenerate() {
+  protected void regenerate() {
     // We may have a totally new size, blow out the points array and rebuild
     int numPoints = size();
     this.mutablePoints.clear();
@@ -550,6 +554,8 @@ public abstract class LXFixture extends LXComponent implements LXFixtureContaine
 
     // Rebuild datagram objects
     regenerateDatagrams();
+
+    onRegenerate();
 
     // Let our container know that our structural generation has changed
     if (this.container != null) {
@@ -580,7 +586,7 @@ public abstract class LXFixture extends LXComponent implements LXFixtureContaine
     geometryMatrix.rotateZ(this.roll.getValuef() * degreesToRadians);
   }
 
-  private void _regenerateGeometry() {
+  protected void _regenerateGeometry() {
     // Reset and compute the transformation matrix based upon geometry parameters
     this.geometryMatrix.set(this.parentTransformMatrix);
     computeGeometryMatrix(this.geometryMatrix);
@@ -637,7 +643,7 @@ public abstract class LXFixture extends LXComponent implements LXFixtureContaine
   }
 
   // Internal private recursive implementation
-  private boolean _reindex(int startIndex) {
+  protected boolean _reindex(int startIndex) {
     boolean somethingChanged = false;
     if (this.firstPointIndex != startIndex) {
       somethingChanged = true;
@@ -667,12 +673,16 @@ public abstract class LXFixture extends LXComponent implements LXFixtureContaine
     return somethingChanged;
   }
 
+  protected LXModel instantiateModel(List<LXPoint> points, LXModel[] children, String[] keys) {
+    return new LXModel(points, children, keys);
+  }
+
   /**
    * Constructs an LXModel object for this Fixture
    *
    * @return Model representation of this fixture
    */
-  final LXModel toModel() {
+  public LXModel toModel() {
     // Creating a new model, clear our set of points
     this.modelPoints.clear();
 
@@ -701,7 +711,7 @@ public abstract class LXFixture extends LXComponent implements LXFixtureContaine
     }
 
     // Okay, good to go, construct the model
-    LXModel model = new LXModel(this.modelPoints, childModels.toArray(new LXModel[0]), getModelKeys());
+    LXModel model = instantiateModel( this.modelPoints, childModels.toArray(new LXModel[0]), getModelKeys() );
     model.transform.set(this.geometryMatrix);
     return this.model = model;
   }
